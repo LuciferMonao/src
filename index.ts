@@ -87,7 +87,13 @@ class plot {
             if (this.possible.length == 1) {
                 if (this.status !== this.possible[0]) {
                     this.status = this.possible[0];
-                    console.log("PLOT: " + this.position + " - ONLY NUMBER " + this.status + " POSSIBLE");
+                    console.log(
+                        "PLOT: " +
+                            this.position +
+                            " - ONLY NUMBER " +
+                            this.status +
+                            " POSSIBLE"
+                    );
                 }
                 return;
             } else if (this.possible.length == 0) {
@@ -102,13 +108,10 @@ class plot {
 class box {
     fields: plot[]; //Fileds in box
     position: number; //Position From left to right, then one line down
-    sudoku: plot[]; //All fields (for check of the parts)
 
-
-    constructor(fields: plot[], position: number, sudoku: plot[]) {
+    constructor(fields: plot[], position: number) {
         this.fields = fields;
         this.position = position;
-        this.sudoku = sudoku;
     }
 
     check() {
@@ -122,13 +125,77 @@ class box {
                     position = iter;
                 }
                 iter++;
-            })
+            });
             if (number_possible == 1) {
-                this.fields[position].status = i;
-                this.fields[position].possible = [];
-                console.log("BOX: " + this.position + " - ONLY FIELD " + position + " POSSIBLE FOR NUMBER " + i)
+                if (this.fields[position].status === 0) {
+                    this.fields[position].status = i;
+                    this.fields[position].possible = [];
+                } else {
+                    console.log(
+                        "DEBUG - Exception LINE A | " + position + " | " + i
+                    );
+                }
+                console.log(
+                    "BOX: " +
+                        this.position +
+                        " - ONLY FIELD " +
+                        position +
+                        " POSSIBLE FOR NUMBER " +
+                        i
+                );
             }
         }
+    }
+}
+
+class line {
+    type: boolean; // true: from left to right; false: from top to bottom
+    fields: plot[]; //Fileds in box
+    position: number; //Position From left to right,or from top to bottom
+
+    constructor(fields: plot[], position: number, type: boolean) {
+        this.fields = fields;
+        this.position = position;
+        this.type = type;
+    }
+
+    simple_check() {
+        
+        for (let i = 1; i <= 9; i++) {
+            let number_possible = 0;
+            let position = 0;
+            let iter = 0;
+            this.fields.forEach(function (element) {
+                if (element.status === i) {
+                    number_possible = 2;
+                    position = iter;
+                }
+                if (element.possible.indexOf(i) !== -1) {
+                    number_possible++;
+                    position = iter;
+                }
+                iter++;
+            });
+            
+            if (number_possible == 1) {
+                if (this.fields[position].status === 0) {
+                    this.fields[position].status = i;
+                    this.fields[position].possible = [];
+                } else {
+                    console.log("DEBUG - Exception LINE A | " + position + " | " + i);
+                }
+                
+                console.log(
+                    "LINE: " +
+                        this.position +
+                        " - ONLY FIELD " +
+                        position +
+                        " POSSIBLE FOR NUMBER " +
+                        i
+                );
+            }
+        }
+        
     }
 }
 
@@ -136,12 +203,12 @@ class field {
     plots: plot[];
     remaining: number;
     boxes: box[];
-
-
+    lines: line[];
 
     constructor(list: number[]) {
         this.plots = [];
         this.boxes = [];
+        this.lines = [];
         let iter = 1;
         let boxes = [
             [1, 2, 3, 10, 11, 12, 19, 20, 21],
@@ -152,7 +219,7 @@ class field {
             [34, 35, 36, 43, 44, 45, 52, 53, 54],
             [55, 56, 57, 64, 65, 66, 73, 74, 75],
             [58, 59, 60, 67, 68, 69, 76, 77, 78],
-            [61, 62, 63, 70, 71, 72, 79, 80, 81]
+            [61, 62, 63, 70, 71, 72, 79, 80, 81],
         ];
         this.remaining = 81;
         list.forEach((num) => {
@@ -162,13 +229,30 @@ class field {
                 this.remaining--;
             }
         });
+
         for (let i = 0; i <= 8; i++) {
             let box_fields: plot[] = [];
-            boxes[i].forEach(element => {
+            boxes[i].forEach((element) => {
                 box_fields.push(this.plots[element - 1]);
             });
-            this.boxes.push(new box(box_fields, i, this.plots))
+            this.boxes.push(new box(box_fields, i));
         }
+
+        for (let i = 0; i < 81; i += 9) {
+            let line_fields: plot[] = [];
+            for (let e = 0; e < 9; e++) {
+                line_fields.push(this.plots[i + e]);
+            }
+            this.lines.push(new line(line_fields, Math.floor(i / 9) + 1, true));
+        }
+        for (let i = 0; i < 9; i++) {
+            let line_fields: plot[] = [];
+            for (let e = 0; e < 81; e += 9) {
+                line_fields.push(this.plots[i + e]);
+            }
+            this.lines.push(new line(line_fields, i + 1, false));
+        }
+
         console.log("DONE: " + (81 - this.remaining));
     }
 
@@ -189,14 +273,17 @@ class field {
         }
     }
 
-
-    check_boxes () {
-        this.boxes.forEach(element => {
+    check_boxes() {
+        this.boxes.forEach((element) => {
             element.check();
         });
-        this.check_plots();
     }
 
+    check_lines() {
+        this.lines.forEach((element) => {
+            element.simple_check();
+        });
+    }
 
     print() {
         let get = function (n: number, plots: plot[]) {
@@ -216,9 +303,8 @@ class field {
                 "|" +
                 get(6, this.plots) +
                 get(7, this.plots) +
-                get(8, this.plots)
-        +
-            "\n" +
+                get(8, this.plots) +
+                "\n" +
                 get(9, this.plots) +
                 get(10, this.plots) +
                 get(11, this.plots) +
@@ -229,9 +315,8 @@ class field {
                 "|" +
                 get(15, this.plots) +
                 get(16, this.plots) +
-                get(17, this.plots)
-            +
-            "\n" +
+                get(17, this.plots) +
+                "\n" +
                 get(18, this.plots) +
                 get(19, this.plots) +
                 get(20, this.plots) +
@@ -242,9 +327,8 @@ class field {
                 "|" +
                 get(24, this.plots) +
                 get(25, this.plots) +
-                get(26, this.plots)
-        +
-            "\n" +
+                get(26, this.plots) +
+                "\n" +
                 get(27, this.plots) +
                 get(28, this.plots) +
                 get(29, this.plots) +
@@ -255,9 +339,8 @@ class field {
                 "|" +
                 get(33, this.plots) +
                 get(34, this.plots) +
-                get(35, this.plots)
-        +
-            "\n" +
+                get(35, this.plots) +
+                "\n" +
                 get(36, this.plots) +
                 get(37, this.plots) +
                 get(38, this.plots) +
@@ -268,9 +351,8 @@ class field {
                 "|" +
                 get(42, this.plots) +
                 get(43, this.plots) +
-                get(44, this.plots)
-        +
-            "\n" +
+                get(44, this.plots) +
+                "\n" +
                 get(45, this.plots) +
                 get(46, this.plots) +
                 get(47, this.plots) +
@@ -281,9 +363,8 @@ class field {
                 "|" +
                 get(51, this.plots) +
                 get(52, this.plots) +
-                get(53, this.plots)
-        +
-            "\n" +
+                get(53, this.plots) +
+                "\n" +
                 get(54, this.plots) +
                 get(55, this.plots) +
                 get(56, this.plots) +
@@ -294,9 +375,8 @@ class field {
                 "|" +
                 get(60, this.plots) +
                 get(61, this.plots) +
-                get(62, this.plots)
-        +
-            "\n" +
+                get(62, this.plots) +
+                "\n" +
                 get(63, this.plots) +
                 get(64, this.plots) +
                 get(65, this.plots) +
@@ -307,9 +387,8 @@ class field {
                 "|" +
                 get(69, this.plots) +
                 get(70, this.plots) +
-                get(71, this.plots)
-        +
-            "\n" +
+                get(71, this.plots) +
+                "\n" +
                 get(72, this.plots) +
                 get(73, this.plots) +
                 get(74, this.plots) +
@@ -331,83 +410,83 @@ const sudoku = new field([
     0,
     0,
     0,
-    1,
+    6,
     0,
     0,
-    9,
+    0,
     0,
     0, //2
-    0,
-    0,
+    9,
     0,
     0,
     0,
     1,
+    0,
+    3,
+    0,
+    0, //3
+    0,
+    0,
+    0,
     4,
     0,
-    5, //3
-    4,
-    0,
-    0,
-    0,
-    8,
     0,
     0,
     0,
     0, //4
-    5,
-    0,
-    0,
-    2,
     0,
     0,
     0,
     0,
-    0, //5
-    1,
     4,
+    0,
+    7,
+    8,
+    0, //5
+    8,
+    0,
+    0,
     3,
     0,
-    9,
-    7,
-    5,
+    4,
+    0,
     0,
     0, //6
-    0,
-    0,
-    0,
     7,
-    0,
-    0,
-    6,
-    0,
-    0, //7
-    0,
-    0,
-    7,
-    0,
-    0,
     0,
     2,
-    9,
-    0, //8
-    3,
-    9,
     0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0, //9
-    6,
-    0,
-    0,
-    5,
     0,
     0,
     0,
     1,
+    0, //7
+    2,
+    0,
+    0,
+    0,
+    5,
+    0,
+    1,
+    3,
+    0, //8
+    0,
+    1,
+    7,
+    0,
+    0,
+    9,
+    0,
+    0,
+    6, //9
+    0,
+    0,
+    3,
+    0,
+    0,
+    2,
+    0,
+    0,
 ]);
 
 /*
@@ -429,6 +508,12 @@ var global_iter = 0;
 
 while (run) {
     sudoku.check_plots();
+    sudoku.check_plots();
+    sudoku.check_lines();
+
+    sudoku.check_plots();
+    sudoku.check_plots();
+
     sudoku.check_boxes();
     global_iter++;
 
